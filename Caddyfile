@@ -1,0 +1,11 @@
+cat /etc/caddy/Caddyfile
+grok.jaredfolkins.com {
+        log {
+                output file /var/log/caddy/grok.jaredfolkins.com.log {
+                        roll_size 1gb
+                        roll_keep 5
+                        roll_keep_for 720h
+                }
+        }
+	reverse_proxy localhost:8080
+}
