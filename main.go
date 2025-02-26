@@ -60,27 +60,41 @@ func main() {
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Redirecting %s to /login?username=&password=", r.RemoteAddr)
-	http.Redirect(w, r, "/login?username=&password=", http.StatusFound)
+	log.Printf("Redirecting %s to /login", r.RemoteAddr)
+	http.Redirect(w, r, "/login", http.StatusFound)
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
-	var username, password string
-
-	// Parse form data for POST requests
-	if r.Method == "POST" {
-		r.ParseForm()
-		username = r.FormValue("username")
-		password = r.FormValue("password")
-	} else {
-		username = r.URL.Query().Get("username")
-		password = r.URL.Query().Get("password")
+	switch r.Method {
+	case "GET":
+		getLoginHandler(w, r)
+		return
+	case "POST":
+		postLoginHandler(w, r)
+		return
 	}
 
-	// Handle login attempts (both GET and POST)
-	if (r.Method == "GET" || r.Method == "POST") && username != "" && password != "" {
-		log.Printf("Login attempt from %s with username: %s via %s", r.RemoteAddr, username, r.Method)
+	w.Write([]byte("HTTP Method Not Allowed"))
+	return
+}
+func getLoginHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Serving login page to %s", r.RemoteAddr)
+	tpl.ExecuteTemplate(w, "login.html", LoginData{Username: "", Password: ""})
+	return
+}
 
+func postLoginHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseForm()
+	username := r.FormValue("username")
+	password := r.FormValue("password")
+
+	if (r.Method == "POST") && username != "" && password != "" {
+		log.Printf("Login attempt from %s with username: %s via %s", r.RemoteAddr, username, r.Method)
 		for _, user := range users {
 			if username == user.Username && password == user.Password {
 				log.Printf("Successful login from %s for user: %s", r.RemoteAddr, user.Username)
@@ -88,24 +102,10 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-
-		w.Write([]byte("login failed!"))
-		return
 	}
 
-	// Serve login page for GET requests without complete credentials
-	if r.Method == "GET" {
-		log.Printf("Serving login page to %s", r.RemoteAddr)
-		tpl.ExecuteTemplate(w, "login.html", LoginData{Username: username, Password: password})
-		return
-	}
-
-	// If POST without credentials, return error
-	if r.Method == "POST" {
-		log.Printf("Invalid POST login attempt from %s: missing credentials", r.RemoteAddr)
-		http.Error(w, "Missing username or password", http.StatusBadRequest)
-		return
-	}
+	http.Error(w, "login failed!", http.StatusBadRequest)
+	return
 }
 
 func userQueryHandler(w http.ResponseWriter, r *http.Request) {
